@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 // Procedural point field on a large sphere shell — no external skybox
 // asset required to get a convincing backdrop.
-export function createStarfield(count = 6000, radius = 1500) {
+export function createStarfield(count = 6000, radius = 1500): THREE.Points {
   const positions = new Float32Array(count * 3);
 
   for (let i = 0; i < count; i++) {

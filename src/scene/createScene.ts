@@ -1,7 +1,13 @@
 import * as THREE from 'three';
-import { HOME_CAMERA_POSITION } from '../bodies/scaleConfig.js';
+import { HOME_CAMERA_POSITION } from '../bodies/scaleConfig.ts';
 
-export function createScene(canvas) {
+export interface SceneBundle {
+  scene: THREE.Scene;
+  camera: THREE.PerspectiveCamera;
+  renderer: THREE.WebGLRenderer;
+}
+
+export function createScene(canvas: HTMLCanvasElement): SceneBundle {
   const scene = new THREE.Scene();
 
   const camera = new THREE.PerspectiveCamera(

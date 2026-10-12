@@ -3,7 +3,9 @@
 // parentId rather than "planet orbits sun" specifically, so a future moon
 // is a data addition (parentId: 'earth'), not an architecture change.
 
-export const bodies = [
+import type { CelestialBodyData } from '../types.ts';
+
+export const bodies: CelestialBodyData[] = [
   {
     id: 'sun',
     name: 'Sun',

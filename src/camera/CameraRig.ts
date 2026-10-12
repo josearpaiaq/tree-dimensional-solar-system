@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { easeInOutCubic, clamp } from './easing.js';
-import { HOME_CAMERA_POSITION, HOME_TARGET, FOCUS_OFFSET_MULTIPLIER, MIN_FOCUS_OFFSET } from '../bodies/scaleConfig.js';
+import { easeInOutCubic, clamp } from './easing.ts';
+import { HOME_CAMERA_POSITION, HOME_TARGET, FOCUS_OFFSET_MULTIPLIER, MIN_FOCUS_OFFSET } from '../bodies/scaleConfig.ts';
+import type CelestialBody from '../bodies/CelestialBody.ts';
 
 const OVERVIEW_MIN_DISTANCE = 12;
 const OVERVIEW_MAX_DISTANCE = 260; // fallback only, used if constructed without outermostOrbitRadius
@@ -13,13 +14,43 @@ const MIN_FLY_DURATION = 0.8;
 const MAX_FLY_DURATION = 1.8;
 const DURATION_DISTANCE_FACTOR = 0.008;
 
+type CameraState = 'idle' | 'flying' | 'focused';
+
+interface Flight {
+  startPos: THREE.Vector3;
+  startTarget: THREE.Vector3;
+  endPos: THREE.Vector3;
+  endTarget: THREE.Vector3;
+  elapsed: number;
+  duration: number;
+  onComplete: () => void;
+}
+
+export interface CameraRigOptions {
+  onFlightStart?: (body: CelestialBody | null) => void;
+  onFlightEnd?: (body: CelestialBody | null) => void;
+  outermostOrbitRadius?: number;
+}
+
 // Owns the free-orbit OrbitControls plus the click-to-focus fly-to state
 // machine. This is the module the app's "fluidity" goal hinges on: the
 // fly-to is a fixed-duration eased tween over elapsed time (frame-rate
 // independent, no snapping), and OrbitControls stays synced via update()
 // even while disabled so re-enabling it never causes a jump.
 export default class CameraRig {
-  constructor(camera, domElement, { onFlightStart, onFlightEnd, outermostOrbitRadius = 0 } = {}) {
+  camera: THREE.PerspectiveCamera;
+  onFlightStart: (body: CelestialBody | null) => void;
+  onFlightEnd: (body: CelestialBody | null) => void;
+
+  controls: OrbitControls;
+  state: CameraState;
+  focusedBody: CelestialBody | null;
+
+  private _overviewMaxDistance: number;
+  private _flight: Flight | null;
+
+  constructor(camera: THREE.PerspectiveCamera, domElement: HTMLElement, options: CameraRigOptions = {}) {
+    const { onFlightStart, onFlightEnd, outermostOrbitRadius = 0 } = options;
     this.camera = camera;
     this.onFlightStart = onFlightStart ?? (() => {});
     this.onFlightEnd = onFlightEnd ?? (() => {});
@@ -45,13 +76,13 @@ export default class CameraRig {
     this.controls.target.set(...HOME_TARGET);
     this.controls.update();
 
-    this.state = 'idle'; // 'idle' | 'flying' | 'focused'
+    this.state = 'idle';
     this.focusedBody = null;
 
     this._flight = null;
   }
 
-  focusOn(body) {
+  focusOn(body: CelestialBody): void {
     if (this.state === 'focused' && this.focusedBody === body) return;
     if (this.focusedBody && this.focusedBody !== body) {
       this.focusedBody.setPaused(false);
@@ -82,7 +113,7 @@ export default class CameraRig {
     });
   }
 
-  returnToOverview() {
+  returnToOverview(): void {
     if (this.state === 'idle') return;
 
     if (this.focusedBody) {
@@ -102,7 +133,7 @@ export default class CameraRig {
     });
   }
 
-  _startFlight(endPos, endTarget, onComplete) {
+  private _startFlight(endPos: THREE.Vector3, endTarget: THREE.Vector3, onComplete: () => void): void {
     // Deliberately reads the camera's *current* position/target as the
     // start — if a flight is already in progress, that's wherever the
     // in-progress tween has reached, so re-targeting mid-flight (e.g. the
@@ -121,9 +152,9 @@ export default class CameraRig {
     this._flight = { startPos, startTarget, endPos, endTarget, elapsed: 0, duration, onComplete };
   }
 
-  update(dt) {
+  update(dt: number): void {
     if (this.state === 'flying') {
-      const flight = this._flight;
+      const flight = this._flight!; // invariant: always set together with state = 'flying'
       flight.elapsed += dt;
       const t = clamp(flight.elapsed / flight.duration, 0, 1);
       const eased = easeInOutCubic(t);

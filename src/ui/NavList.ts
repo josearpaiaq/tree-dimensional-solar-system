@@ -1,10 +1,19 @@
+import type CelestialBody from '../bodies/CelestialBody.ts';
+
+export interface NavListOptions {
+  onSelect?: (bodyId: string) => void;
+}
+
 // Always-visible list of the 9 body names — the deliberate "lost user"
 // affordance, since free orbit has no other guaranteed way back to a
 // specific planet. Both this and raycaster clicks call the same
 // onSelect(bodyId), so there is one source of truth for "focus this body".
 export default class NavList {
-  constructor(bodies, { onSelect } = {}) {
-    this.container = document.getElementById('nav-list');
+  container: HTMLElement;
+  buttons: Map<string, HTMLButtonElement>;
+
+  constructor(bodies: CelestialBody[], { onSelect }: NavListOptions = {}) {
+    this.container = document.getElementById('nav-list')!;
     this.buttons = new Map();
 
     for (const body of bodies) {
@@ -17,7 +26,7 @@ export default class NavList {
     }
   }
 
-  setActive(bodyId) {
+  setActive(bodyId: string | null): void {
     for (const [id, button] of this.buttons) {
       button.classList.toggle('active', id === bodyId);
     }

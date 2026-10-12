@@ -1,9 +1,14 @@
 import * as THREE from 'three';
 
+export interface LightingBundle {
+  sunLight: THREE.PointLight;
+  ambientLight: THREE.AmbientLight;
+}
+
 // Tuned intensity/decay rather than strict inverse-square falloff — at
 // compressed-but-still-substantial scene distances, physically accurate
 // falloff would leave the outer planets nearly black.
-export function createLighting(scene) {
+export function createLighting(scene: THREE.Scene): LightingBundle {
   const sunLight = new THREE.PointLight(0xffffff, 3, 0, 0.15);
   sunLight.position.set(0, 0, 0);
   scene.add(sunLight);

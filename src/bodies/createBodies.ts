@@ -1,16 +1,23 @@
 import * as THREE from 'three';
-import { bodies as bodyData } from './data/bodies.js';
-import { planetSceneRadius } from './scaleConfig.js';
-import CelestialBody from './CelestialBody.js';
+import { bodies as bodyData } from './data/bodies.ts';
+import { planetSceneRadius } from './scaleConfig.ts';
+import CelestialBody from './CelestialBody.ts';
+import type { RingData } from './types.ts';
+
+export interface CreateBodiesResult {
+  group: THREE.Group;
+  celestialBodies: CelestialBody[];
+  byId: Map<string, CelestialBody>;
+}
 
 // Factory: turns the plain data array into live CelestialBody instances,
 // loading textures through a shared LoadingManager so the app can gate
 // its first render on everything being ready (no texture pop-in).
-export function createBodies(loadingManager) {
+export function createBodies(loadingManager: THREE.LoadingManager): CreateBodiesResult {
   const textureLoader = new THREE.TextureLoader(loadingManager);
   const group = new THREE.Group();
-  const celestialBodies = [];
-  const byId = new Map();
+  const celestialBodies: CelestialBody[] = [];
+  const byId = new Map<string, CelestialBody>();
 
   for (const data of bodyData) {
     const texture = textureLoader.load(data.textureMap);
@@ -21,7 +28,7 @@ export function createBodies(loadingManager) {
         ? new THREE.MeshBasicMaterial({ map: texture })
         : new THREE.MeshStandardMaterial({ map: texture, roughness: 1, metalness: 0 });
 
-    const ringMesh = data.ring ? createRing(data, textureLoader) : null;
+    const ringMesh = data.ring ? createRing(data.ring, data.rotation.axialTiltDeg, textureLoader) : null;
 
     const body = new CelestialBody(data, material, ringMesh);
     celestialBodies.push(body);
@@ -32,13 +39,13 @@ export function createBodies(loadingManager) {
   return { group, celestialBodies, byId };
 }
 
-function createRing(data, textureLoader) {
-  const innerRadius = planetSceneRadius(data.ring.innerRadiusKm);
-  const outerRadius = planetSceneRadius(data.ring.outerRadiusKm);
+function createRing(ring: RingData, axialTiltDeg: number, textureLoader: THREE.TextureLoader): THREE.Mesh {
+  const innerRadius = planetSceneRadius(ring.innerRadiusKm);
+  const outerRadius = planetSceneRadius(ring.outerRadiusKm);
   const geometry = new THREE.RingGeometry(innerRadius, outerRadius, 64);
   remapRingUVsRadially(geometry, innerRadius, outerRadius);
 
-  const texture = textureLoader.load(data.ring.textureMap);
+  const texture = textureLoader.load(ring.textureMap);
   texture.colorSpace = THREE.SRGBColorSpace;
   const material = new THREE.MeshBasicMaterial({
     map: texture,
@@ -48,7 +55,7 @@ function createRing(data, textureLoader) {
 
   const mesh = new THREE.Mesh(geometry, material);
   // Rings lie in the planet's equatorial plane.
-  mesh.rotation.x = Math.PI / 2 - THREE.MathUtils.degToRad(data.rotation.axialTiltDeg);
+  mesh.rotation.x = Math.PI / 2 - THREE.MathUtils.degToRad(axialTiltDeg);
   return mesh;
 }
 
@@ -56,9 +63,9 @@ function createRing(data, textureLoader) {
 // position, not its radial distance — with a radial-gradient ring texture
 // (inner edge to outer edge along one axis) that renders as a swirled
 // mess. Remap u to normalized radius so the texture reads correctly.
-function remapRingUVsRadially(geometry, innerRadius, outerRadius) {
-  const position = geometry.attributes.position;
-  const uv = geometry.attributes.uv;
+function remapRingUVsRadially(geometry: THREE.RingGeometry, innerRadius: number, outerRadius: number): void {
+  const position = geometry.attributes.position as THREE.BufferAttribute;
+  const uv = geometry.attributes.uv as THREE.BufferAttribute;
   const vertex = new THREE.Vector3();
 
   for (let i = 0; i < position.count; i++) {

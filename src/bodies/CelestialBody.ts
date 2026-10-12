@@ -5,7 +5,8 @@ import {
   orbitAngularSpeed,
   axialAngularSpeed,
   SUN_SCENE_RADIUS,
-} from './scaleConfig.js';
+} from './scaleConfig.ts';
+import type { CelestialBodyData, BodyType, FactsData } from './types.ts';
 
 const sharedSphereGeometry = new THREE.SphereGeometry(1, 48, 32);
 
@@ -14,7 +15,24 @@ const sharedSphereGeometry = new THREE.SphereGeometry(1, 48, 32);
 // revolving the pivot revolves the mesh — this is what lets a future moon
 // reuse the same class with parentId pointing at a planet instead of the sun.
 export default class CelestialBody {
-  constructor(data, material, ringMesh) {
+  id: string;
+  name: string;
+  type: BodyType;
+  facts: FactsData;
+  data: CelestialBodyData;
+
+  sceneRadius: number;
+  orbitRadius: number;
+  angularSpeed: number;
+  rotationSpeed: number;
+
+  revolutionAngle: number;
+  paused: boolean;
+
+  pivot: THREE.Group;
+  mesh: THREE.Mesh;
+
+  constructor(data: CelestialBodyData, material: THREE.Material, ringMesh: THREE.Mesh | null) {
     this.id = data.id;
     this.name = data.name;
     this.type = data.type;
@@ -46,7 +64,7 @@ export default class CelestialBody {
     }
   }
 
-  update(dt) {
+  update(dt: number): void {
     if (!this.paused && this.data.orbit) {
       this.revolutionAngle += this.angularSpeed * dt;
       this.pivot.rotation.y = this.revolutionAngle;
@@ -54,17 +72,17 @@ export default class CelestialBody {
     this.mesh.rotation.y += this.rotationSpeed * dt;
   }
 
-  setPaused(paused) {
+  setPaused(paused: boolean): void {
     this.paused = paused;
   }
 
   // Hover affordance: a small scale bump on the mesh only (the ring, if
   // any, is a sibling in the pivot so it doesn't pulse with it).
-  setHighlighted(active) {
+  setHighlighted(active: boolean): void {
     this.mesh.scale.setScalar(this.sceneRadius * (active ? 1.08 : 1));
   }
 
-  getWorldPosition(target = new THREE.Vector3()) {
+  getWorldPosition(target: THREE.Vector3 = new THREE.Vector3()): THREE.Vector3 {
     return this.mesh.getWorldPosition(target);
   }
 }

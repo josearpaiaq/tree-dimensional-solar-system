@@ -1,10 +1,20 @@
+import type * as THREE from 'three';
+
+export interface LoadingScreenOptions {
+  onLoad?: () => void;
+}
+
 // Driven by the shared THREE.LoadingManager so the app's first reveal is
 // gated on every texture being ready — no pop-in.
 export default class LoadingScreen {
-  constructor(loadingManager, { onLoad } = {}) {
-    this.el = document.getElementById('loading-screen');
-    this.label = document.getElementById('loading-label');
-    this.fill = document.getElementById('loading-bar-fill');
+  el: HTMLElement;
+  label: HTMLElement;
+  fill: HTMLElement;
+
+  constructor(loadingManager: THREE.LoadingManager, { onLoad }: LoadingScreenOptions = {}) {
+    this.el = document.getElementById('loading-screen')!;
+    this.label = document.getElementById('loading-label')!;
+    this.fill = document.getElementById('loading-bar-fill')!;
 
     loadingManager.onProgress = (_url, loaded, total) => {
       const pct = total > 0 ? Math.round((loaded / total) * 100) : 100;
@@ -21,7 +31,7 @@ export default class LoadingScreen {
     };
   }
 
-  hide() {
+  hide(): void {
     this.el.classList.add('hidden');
   }
 }

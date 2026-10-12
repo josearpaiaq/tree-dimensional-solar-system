@@ -3,18 +3,19 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
-import { createScene } from './scene/createScene.js';
-import { createLighting } from './scene/lighting.js';
-import { createStarfield } from './scene/starfield.js';
-import { createBodies } from './bodies/createBodies.js';
-import CameraRig from './camera/CameraRig.js';
-import PlanetPicker from './interaction/PlanetPicker.js';
-import FactsPanel from './ui/FactsPanel.js';
-import NavList from './ui/NavList.js';
-import LoadingScreen from './ui/LoadingScreen.js';
+import { createScene } from './scene/createScene.ts';
+import { createLighting } from './scene/lighting.ts';
+import { createStarfield } from './scene/starfield.ts';
+import { createBodies } from './bodies/createBodies.ts';
+import CameraRig from './camera/CameraRig.ts';
+import PlanetPicker from './interaction/PlanetPicker.ts';
+import FactsPanel from './ui/FactsPanel.ts';
+import NavList from './ui/NavList.ts';
+import LoadingScreen from './ui/LoadingScreen.ts';
+import type CelestialBody from './bodies/CelestialBody.ts';
 import './style.css';
 
-const canvas = document.getElementById('scene-canvas');
+const canvas = document.getElementById('scene-canvas') as HTMLCanvasElement;
 const { scene, camera, renderer } = createScene(canvas);
 
 createLighting(scene);
@@ -43,11 +44,11 @@ const loadingScreen = new LoadingScreen(loadingManager, {
   onLoad: () => requestAnimationFrame(() => loadingScreen.hide()),
 });
 
-function handleFlightStart() {
+function handleFlightStart(): void {
   factsPanel.hide();
 }
 
-function handleFlightEnd(body) {
+function handleFlightEnd(body: CelestialBody | null): void {
   if (body) {
     factsPanel.show(body);
     navList.setActive(body.id);
@@ -57,19 +58,19 @@ function handleFlightEnd(body) {
   }
 }
 
-function focusBody(bodyId) {
+function focusBody(bodyId: string): void {
   const body = byId.get(bodyId);
   if (body) cameraRig.focusOn(body);
 }
 
-function handleMiss() {
+function handleMiss(): void {
   if (cameraRig.state === 'focused') cameraRig.returnToOverview();
 }
 
-let hoveredBody = null;
-function handleHoverChange(bodyId) {
+let hoveredBody: CelestialBody | null = null;
+function handleHoverChange(bodyId: string | null): void {
   if (hoveredBody) hoveredBody.setHighlighted(false);
-  hoveredBody = bodyId ? byId.get(bodyId) : null;
+  hoveredBody = bodyId ? (byId.get(bodyId) ?? null) : null;
   if (hoveredBody) hoveredBody.setHighlighted(true);
 }
 
@@ -89,7 +90,7 @@ const planetPicker = new PlanetPicker(
   { onPick: focusBody, onMiss: handleMiss, onHoverChange: handleHoverChange }
 );
 
-const controlsHint = document.getElementById('controls-hint');
+const controlsHint = document.getElementById('controls-hint')!;
 renderer.domElement.addEventListener('pointerdown', () => controlsHint.classList.add('hidden'), {
   once: true,
 });
@@ -97,7 +98,7 @@ renderer.domElement.addEventListener('pointerdown', () => controlsHint.classList
 const timer = new THREE.Timer();
 timer.connect(document); // uses the Page Visibility API to avoid a huge delta after a backgrounded tab
 
-function animate() {
+function animate(): void {
   requestAnimationFrame(animate);
   timer.update();
   const dt = timer.getDelta();

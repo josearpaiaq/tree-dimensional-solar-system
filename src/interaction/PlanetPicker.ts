@@ -23,6 +23,7 @@ export default class PlanetPicker {
   raycaster: THREE.Raycaster;
   pointer: THREE.Vector2;
   hoveredId: string | null;
+  enabled: boolean; // only the map uses picking; in flight the pointer is locked
   private _pointerDirty: boolean;
   private _downPos: { x: number; y: number } | null;
 
@@ -38,6 +39,7 @@ export default class PlanetPicker {
     this.raycaster = new THREE.Raycaster();
     this.pointer = new THREE.Vector2();
     this.hoveredId = null;
+    this.enabled = true;
     this._pointerDirty = false;
     this._downPos = null;
 
@@ -52,6 +54,7 @@ export default class PlanetPicker {
   };
 
   private _onPointerDown = (event: PointerEvent): void => {
+    if (!this.enabled) return;
     this._downPos = { x: event.clientX, y: event.clientY };
   };
 
@@ -86,8 +89,18 @@ export default class PlanetPicker {
 
   // Called once per rendered frame; only does work if the pointer actually
   // moved since the last check.
+  setEnabled(enabled: boolean): void {
+    this.enabled = enabled;
+    this._downPos = null;
+    if (!enabled && this.hoveredId !== null) {
+      this.hoveredId = null;
+      this.domElement.style.cursor = '';
+      this.onHoverChange(null);
+    }
+  }
+
   update(): void {
-    if (!this._pointerDirty) return;
+    if (!this.enabled || !this._pointerDirty) return;
     this._pointerDirty = false;
 
     const hit = this._raycast();

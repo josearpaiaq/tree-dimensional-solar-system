@@ -3,11 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Solar System</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Solar Pilot</title>
   </head>
   <body>
-    <div id="app">
+    <div id="app" data-mode="paused">
       <canvas id="scene-canvas"></canvas>
 
       <div id="loading-screen">
@@ -15,15 +15,74 @@
         <div id="loading-bar-track"><div id="loading-bar-fill"></div></div>
       </div>
 
-      <nav id="nav-list" aria-label="Jump to planet"></nav>
+      <div id="map-overlay" aria-hidden="true">
+        <svg id="map-route"><line id="map-route-line" class="hidden" /></svg>
+        <div id="map-ship-marker" class="hidden"><span class="map-ship-pulse"></span><span class="map-ship-label">You</span></div>
+      </div>
 
-      <div id="controls-hint">drag to orbit &middot; scroll to zoom &middot; click a planet</div>
+      <nav id="nav-list" aria-label="Jump to body"></nav>
+
+      <div id="controls-hint"></div>
 
       <aside id="facts-panel">
-        <button id="facts-panel-close" aria-label="Back to overview">&larr; Overview</button>
+        <button id="facts-panel-close" aria-label="Close facts">&larr; Overview</button>
         <h2 id="facts-panel-name"></h2>
         <dl id="facts-panel-stats"></dl>
       </aside>
+
+      <div id="hud" aria-hidden="true">
+        <div id="hud-crosshair">
+          <svg viewBox="0 0 64 64" width="64" height="64">
+            <circle class="hud-scan-track" cx="32" cy="32" r="26" />
+            <circle id="hud-scan-ring" class="hidden" cx="32" cy="32" r="26" />
+            <path d="M32 26v-6M32 38v6M26 32h-6M38 32h6" />
+          </svg>
+        </div>
+        <div id="hud-flight">
+          <div id="hud-speed"></div>
+          <div id="hud-frame"></div>
+          <div class="hud-row"><span id="hud-assist"></span><span id="hud-drive"></span></div>
+        </div>
+        <div id="hud-target" class="hidden">
+          <div class="hud-label">Target</div>
+          <div id="hud-target-name"></div>
+          <div id="hud-target-distance"></div>
+          <div id="hud-target-status"></div>
+        </div>
+        <div id="hud-codex"></div>
+        <div id="hud-message"></div>
+        <div id="target-bracket" class="hidden"><span id="target-bracket-label"></span></div>
+        <div id="target-arrow" class="hidden"></div>
+      </div>
+
+      <section id="codex-panel" aria-label="Codex">
+        <header>
+          <h2>Codex</h2>
+          <span id="codex-count"></span>
+          <button id="codex-close" type="button">Close &middot; Tab</button>
+        </header>
+        <div id="codex-list"></div>
+      </section>
+
+      <div id="pause-overlay">
+        <h1>Solar Pilot</h1>
+        <p class="pause-goal">Scan every planet and moon to complete the Codex.</p>
+        <button id="pause-resume" type="button">Click to fly</button>
+        <dl class="pause-controls">
+          <dt>Mouse</dt><dd>Steer</dd>
+          <dt>W / S &middot; &uarr; / &darr;</dt><dd>Thrust forward / back</dd>
+          <dt>A / D &middot; &larr; / &rarr;</dt><dd>Strafe sideways</dd>
+          <dt>R / F</dt><dd>Strafe up / down</dd>
+          <dt>Q / E</dt><dd>Roll</dd>
+          <dt>J</dt><dd>Cruise drive</dd>
+          <dt>T</dt><dd>Target body ahead</dd>
+          <dt>Z</dt><dd>Flight assist</dd>
+          <dt>C</dt><dd>Chase / cockpit camera</dd>
+          <dt>M &middot; Tab</dt><dd>Map &middot; Codex</dd>
+          <dt>O</dt><dd>Show / hide orbits</dd>
+          <dt>Esc</dt><dd>Pause</dd>
+        </dl>
+      </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

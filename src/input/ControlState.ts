@@ -16,8 +16,19 @@ export type ControlAction =
   | 'toggleMap'
   | 'toggleCodex'
   | 'toggleOrbits'
-  | 'back';
+  | 'togglePause';
 
 export function emptyControls(): ControlState {
   return { thrust: { x: 0, y: 0, z: 0 }, rotate: { x: 0, y: 0, z: 0 } };
+}
+
+// What GameMode and the frame loop need from an input device. "Locked"
+// means the input is captured for flight: pointer lock on desktop, the
+// on-screen controls being engaged on touch.
+export interface FlightInput {
+  readonly locked: boolean;
+  requestLock(): void;
+  exitLock(): void;
+  read(dt: number): ControlState;
+  consumeActions(): ControlAction[];
 }

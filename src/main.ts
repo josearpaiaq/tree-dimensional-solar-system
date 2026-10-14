@@ -14,7 +14,8 @@ import CameraRig from './camera/CameraRig.ts';
 import ShipCamera from './camera/ShipCamera.ts';
 import PlanetPicker from './interaction/PlanetPicker.ts';
 import KeyboardMouseInput from './input/KeyboardMouseInput.ts';
-import { emptyControls, type ControlAction } from './input/ControlState.ts';
+import TouchInput, { isTouchPrimary } from './input/TouchInput.ts';
+import { emptyControls, type ControlAction, type FlightInput } from './input/ControlState.ts';
 import Ship from './ship/Ship.ts';
 import {
   stepFlight,
@@ -51,15 +52,18 @@ const MAX_FRAME_DT = 0.1; // a long hitch is absorbed rather than simulated as a
 
 const CONTROLS_HINTS: Partial<Record<Mode, string>> = {
   flight: 'T target · J cruise · O orbits · M map · Tab codex · Esc pause',
-  map: 'drag to orbit · right-drag to pan · scroll to zoom · click a body to target it · O orbits · M to fly',
+  map: 'drag to orbit · right-drag to pan · scroll to zoom · click a body to target it · O orbits · M fly · Tab codex · Esc pause',
 };
 
 const appEl = document.getElementById('app')!;
 const canvas = document.getElementById('scene-canvas') as HTMLCanvasElement;
-const { scene, camera, renderer } = createScene(canvas, detectQualityTier());
+const qualityTier = detectQualityTier();
+const touch = isTouchPrimary();
+appEl.dataset.input = touch ? 'touch' : 'desktop';
+const { scene, camera, renderer } = createScene(canvas, qualityTier);
 
 createLighting(scene);
-const starfield = createStarfield();
+const starfield = createStarfield(qualityTier === 'low' ? 3000 : undefined);
 scene.add(starfield);
 
 const loadingManager = new THREE.LoadingManager();
@@ -71,8 +75,16 @@ const orbitLines = createOrbitLines(celestialBodies);
 // nothing else crosses the threshold, so no selective-bloom layer is needed.
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
-const bloomPass = new UnrealBloomPass(
-  new THREE.Vector2(window.innerWidth, window.innerHeight),
+// On the low tier (phones) bloom's blur passes are the priciest part of the
+// frame; at half resolution the soft glow looks nearly the same.
+class HalfResolutionBloomPass extends UnrealBloomPass {
+  setSize(width: number, height: number): void {
+    super.setSize(Math.round(width / 2), Math.round(height / 2));
+  }
+}
+const bloomScale = qualityTier === 'low' ? 0.5 : 1;
+const bloomPass = new (qualityTier === 'low' ? HalfResolutionBloomPass : UnrealBloomPass)(
+  new THREE.Vector2(window.innerWidth * bloomScale, window.innerHeight * bloomScale),
   0.9,
   0.6,
   0.82
@@ -130,6 +142,7 @@ const codexPanel = new CodexPanel(celestialBodies, {
   onClose: () => gameMode.toggleCodex(),
 });
 const controlsHint = document.getElementById('controls-hint')!;
+const pauseHint = document.getElementById('pause-hint')!;
 
 function showFacts(body: CelestialBody, closeLabel: string): void {
   window.clearTimeout(factsTimer);
@@ -212,9 +225,13 @@ planetPicker.setEnabled(false);
 
 // --- Modes ---
 
-const input = new KeyboardMouseInput(renderer.domElement, {
-  onLockChange: (locked) => gameMode.handleLockChange(locked),
-});
+const onLockChange = (locked: boolean): void => gameMode.handleLockChange(locked);
+const input: FlightInput = touch
+  ? new TouchInput(document.getElementById('touch-controls')!, { onLockChange })
+  : new KeyboardMouseInput(renderer.domElement, {
+      onLockChange,
+      onLockRefused: () => pauseHint.classList.add('visible'),
+    });
 
 const gameMode = new GameMode({
   input,
@@ -226,10 +243,40 @@ const gameMode = new GameMode({
   onChange: handleModeChange,
 });
 
+// Keep the screen awake while playing (any mode but paused), so a phone
+// doesn't dim mid-flight. The browser drops the lock whenever the page is
+// hidden, so it is re-requested on return. Only exists on HTTPS/localhost.
+let wakeLock: WakeLockSentinel | null = null;
+let wakeLockPending = false;
+function updateWakeLock(): void {
+  if (!('wakeLock' in navigator)) return;
+  const wanted = gameMode.mode !== 'paused' && document.visibilityState === 'visible';
+  if (wanted && !wakeLock && !wakeLockPending) {
+    wakeLockPending = true;
+    navigator.wakeLock
+      .request('screen')
+      .then((lock) => {
+        wakeLock = lock;
+        lock.addEventListener('release', () => (wakeLock = null));
+        updateWakeLock(); // the mode may have changed while waiting
+      })
+      .catch(() => {})
+      .finally(() => (wakeLockPending = false));
+  } else if (!wanted && wakeLock) {
+    void wakeLock.release();
+  }
+}
+document.addEventListener('visibilitychange', updateWakeLock);
+
 function handleModeChange(mode: Mode): void {
   appEl.dataset.mode = mode;
+  updateWakeLock();
   controlsHint.textContent = CONTROLS_HINTS[mode] ?? '';
   planetPicker.setEnabled(mode === 'map');
+  pauseHint.classList.remove('visible');
+  // Map camera controls only respond while the map is the active mode, not
+  // behind the Codex or pause overlays (transitions manage it themselves).
+  if (cameraRig.state !== 'transition') cameraRig.controls.enabled = mode === 'map';
   // The model is hidden in cockpit view, but the map should show it.
   ship.group.visible = mode === 'map' || shipCamera.view === 'chase';
 
@@ -246,7 +293,38 @@ function handleModeChange(mode: Mode): void {
 }
 handleModeChange(gameMode.mode);
 
-document.getElementById('pause-resume')!.addEventListener('click', () => gameMode.resume());
+// Phones go fullscreen to hide the browser bars, then lock to landscape
+// (browsers only allow the lock in fullscreen, and only from a tap). iPhone
+// Safari supports neither, so there the rotate prompt stays the fallback.
+function enterLandscapeFullscreen(): void {
+  if (!touch || document.fullscreenElement) return;
+  document.documentElement
+    .requestFullscreen?.()
+    .then(() => screen.orientation.lock('landscape'))
+    .catch(() => {});
+}
+
+const resumeButton = document.getElementById('pause-resume')!;
+resumeButton.textContent = touch ? 'Tap to fly' : 'Click to fly';
+// Anywhere on the pause screen resumes, not just the button.
+document.getElementById('pause-overlay')!.addEventListener('click', () => {
+  enterLandscapeFullscreen();
+  gameMode.resume();
+});
+document.getElementById('map-fly')!.addEventListener('click', () => gameMode.toggleMap());
+
+// Touch play is landscape-only: turning the phone upright pauses flight
+// (CSS shows a "rotate your phone" prompt over everything).
+const portrait = window.matchMedia('(orientation: portrait)');
+// Where the browser can rotate the screen itself, tapping the prompt does it.
+const rotatePrompt = document.getElementById('rotate-prompt')!;
+if (touch && 'requestFullscreen' in document.documentElement) {
+  rotatePrompt.textContent += ', or tap to rotate';
+  rotatePrompt.addEventListener('click', enterLandscapeFullscreen);
+}
+portrait.addEventListener('change', () => {
+  if (touch && portrait.matches && gameMode.mode === 'flight') gameMode.togglePause();
+});
 
 // --- Flight actions ---
 
@@ -263,8 +341,8 @@ function handleActions(actions: ControlAction[]): void {
       case 'toggleCodex':
         gameMode.toggleCodex();
         break;
-      case 'back':
-        gameMode.back();
+      case 'togglePause':
+        gameMode.togglePause();
         break;
       case 'toggleOrbits': {
         const visible = !orbitLines[0]?.visible;

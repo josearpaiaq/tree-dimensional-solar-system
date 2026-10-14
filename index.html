@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Solar Pilot</title>
   </head>
   <body>
@@ -18,6 +18,7 @@
       <div id="map-overlay" aria-hidden="true">
         <svg id="map-route"><line id="map-route-line" class="hidden" /></svg>
         <div id="map-ship-marker" class="hidden"><span class="map-ship-pulse"></span><span class="map-ship-label">You</span></div>
+        <button id="map-fly" type="button">Fly &rarr;</button>
       </div>
 
       <nav id="nav-list" aria-label="Jump to body"></nav>
@@ -55,6 +56,24 @@
         <div id="target-arrow" class="hidden"></div>
       </div>
 
+      <div id="touch-controls">
+        <div class="touch-stick"><div class="touch-knob"></div></div>
+        <div class="touch-steer"><div class="touch-knob"></div></div>
+        <div class="touch-buttons left">
+          <button type="button" data-action="toggleMap">Map</button>
+          <button type="button" data-action="toggleCodex">Codex</button>
+          <button type="button" data-action="togglePause" aria-label="Pause">II</button>
+        </div>
+        <div class="touch-buttons right">
+          <button type="button" data-action="target">Target</button>
+          <button type="button" data-action="toggleCruise">Cruise</button>
+          <button type="button" data-action="toggleCamera">Cam</button>
+          <button type="button" data-action="toggleOrbits">Orbits</button>
+        </div>
+      </div>
+
+      <div id="rotate-prompt">Rotate your phone to landscape to fly</div>
+
       <section id="codex-panel" aria-label="Codex">
         <header>
           <h2>Codex</h2>
@@ -68,6 +87,8 @@
         <h1>Solar Pilot</h1>
         <p class="pause-goal">Scan every planet and moon to complete the Codex.</p>
         <button id="pause-resume" type="button">Click to fly</button>
+        <p id="pause-hint">Your browser needs a click to capture the mouse — click anywhere.</p>
+        <p class="pause-touch">Left thumb: move &middot; Right thumb: steer &middot; Target a body, Cruise to it, then hold it in the crosshair to scan.</p>
         <dl class="pause-controls">
           <dt>Mouse</dt><dd>Steer</dd>
           <dt>W / S &middot; &uarr; / &darr;</dt><dd>Thrust forward / back</dd>
@@ -80,7 +101,7 @@
           <dt>C</dt><dd>Chase / cockpit camera</dd>
           <dt>M &middot; Tab</dt><dd>Map &middot; Codex</dd>
           <dt>O</dt><dd>Show / hide orbits</dd>
-          <dt>Esc</dt><dd>Pause</dd>
+          <dt>Esc</dt><dd>Pause / resume</dd>
         </dl>
       </div>
     </div>

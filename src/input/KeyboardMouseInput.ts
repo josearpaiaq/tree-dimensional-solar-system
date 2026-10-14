@@ -1,8 +1,12 @@
 import { clamp } from '../camera/easing.ts';
 import { MAX_ANGULAR_SPEED } from '../bodies/scaleConfig.ts';
-import { emptyControls, type ControlAction, type ControlState } from './ControlState.ts';
+import { emptyControls, type ControlAction, type ControlState, type FlightInput } from './ControlState.ts';
 
 const MOUSE_SENSITIVITY = 0.0025; // radians of commanded turn per pixel
+// While the pointer is locked, Esc belongs to the browser (it releases the
+// lock, which already pauses). Some browsers still deliver that keydown,
+// shortly after; it must not count as a second pause toggle.
+const ESC_AFTER_UNLOCK_MS = 500;
 
 // Continuous axes: [code, axis group, axis, direction].
 const AXIS_BINDINGS: [string, 'thrust' | 'rotate', 'x' | 'y' | 'z', number][] = [
@@ -28,37 +32,44 @@ const ACTION_BINDINGS: Record<string, ControlAction> = {
   KeyM: 'toggleMap',
   Tab: 'toggleCodex',
   KeyO: 'toggleOrbits',
-  Escape: 'back',
+  Escape: 'togglePause',
 };
 
 export interface KeyboardMouseInputOptions {
   onLockChange?: (locked: boolean) => void;
+  onLockRefused?: () => void; // the browser declined a lock request (e.g. not a user gesture)
 }
 
 // Keyboard + pointer-lock mouse → ControlState. Mouse movement is turned
 // into an angular *rate* command (pixels this frame / frame time), so the
 // flight model's rate control smooths it like a stick input.
-export default class KeyboardMouseInput {
+export default class KeyboardMouseInput implements FlightInput {
   domElement: HTMLElement;
   private _held = new Set<string>();
   private _actions: ControlAction[] = [];
   private _mouseX = 0;
   private _mouseY = 0;
   private _onLockChange: (locked: boolean) => void;
+  private _onLockRefused: () => void;
+  private _unlockedAt = -Infinity;
 
-  constructor(domElement: HTMLElement, { onLockChange }: KeyboardMouseInputOptions = {}) {
+  constructor(domElement: HTMLElement, { onLockChange, onLockRefused }: KeyboardMouseInputOptions = {}) {
     this.domElement = domElement;
     this._onLockChange = onLockChange ?? (() => {});
+    this._onLockRefused = onLockRefused ?? (() => {});
 
     window.addEventListener('keydown', this._onKeyDown);
     window.addEventListener('keyup', (e) => this._held.delete(e.code));
     window.addEventListener('blur', () => this._held.clear());
     document.addEventListener('mousemove', this._onMouseMove);
     document.addEventListener('pointerlockchange', () => {
-      if (!this.locked) this._held.clear();
+      if (!this.locked) {
+        this._held.clear();
+        this._unlockedAt = performance.now();
+      }
       this._onLockChange(this.locked);
     });
-    document.addEventListener('pointerlockerror', () => this._onLockChange(false));
+    document.addEventListener('pointerlockerror', this._refused);
   }
 
   get locked(): boolean {
@@ -72,9 +83,9 @@ export default class KeyboardMouseInput {
     if (this.locked) return;
     try {
       const result = this.domElement.requestPointerLock() as unknown;
-      if (result instanceof Promise) result.catch(() => this._onLockChange(false));
+      if (result instanceof Promise) result.catch(this._refused);
     } catch {
-      this._onLockChange(false);
+      this._refused();
     }
   }
 
@@ -106,10 +117,16 @@ export default class KeyboardMouseInput {
     return actions;
   }
 
+  private _refused = (): void => {
+    this._onLockChange(false);
+    this._onLockRefused();
+  };
+
   private _onKeyDown = (event: KeyboardEvent): void => {
     if (event.code === 'Tab') event.preventDefault(); // keep focus from leaving the game
     this._held.add(event.code);
     const action = ACTION_BINDINGS[event.code];
+    if (action === 'togglePause' && (this.locked || performance.now() - this._unlockedAt < ESC_AFTER_UNLOCK_MS)) return;
     if (action && !event.repeat) this._actions.push(action);
   };
 

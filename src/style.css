@@ -19,6 +19,7 @@ body {
   position: relative;
   width: 100vw;
   height: 100vh;
+  height: 100dvh; /* the visible area: 100vh runs under mobile browser toolbars */
 }
 
 #scene-canvas {
@@ -233,7 +234,7 @@ body {
 #nav-list {
   top: max(var(--edge), env(safe-area-inset-top));
   left: max(var(--edge), env(safe-area-inset-left));
-  max-height: calc(100vh - 2 * var(--edge));
+  max-height: calc(100dvh - 2 * var(--edge));
   overflow-y: auto;
 }
 
@@ -422,7 +423,7 @@ body {
   z-index: 15;
   flex-direction: column;
   width: min(420px, calc(100vw - 2 * var(--edge)));
-  max-height: calc(100vh - 2 * var(--edge));
+  max-height: calc(100dvh - 2 * var(--edge));
   padding: 18px 20px;
   background: var(--panel-bg);
   backdrop-filter: blur(12px);
@@ -502,6 +503,7 @@ body {
   position: absolute;
   inset: 0;
   z-index: 15;
+  cursor: pointer;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -537,6 +539,17 @@ body {
 
 #pause-resume:hover {
   background: rgba(127, 215, 255, 0.12);
+}
+
+#pause-hint {
+  display: none;
+  margin: 0;
+  color: var(--hud-warn);
+  font-size: 13px;
+}
+
+#pause-hint.visible {
+  display: block;
 }
 
 .pause-controls {
@@ -642,4 +655,161 @@ body {
 #nav-list button.nav-ship {
   color: var(--hud-accent);
   margin-bottom: 6px;
+}
+
+#map-fly {
+  all: unset;
+  position: absolute;
+  top: max(var(--edge), env(safe-area-inset-top));
+  right: max(var(--edge), env(safe-area-inset-right));
+  pointer-events: auto;
+  cursor: pointer;
+  padding: 8px 18px;
+  border: 1px solid var(--hud-accent);
+  border-radius: 999px;
+  color: var(--hud-accent);
+  font-size: 14px;
+  background: rgba(16, 17, 22, 0.6);
+}
+
+#map-fly:hover {
+  background: rgba(127, 215, 255, 0.12);
+}
+
+/* ===== Touch (Part 1b) ===== */
+
+#touch-controls,
+#rotate-prompt,
+.pause-touch {
+  display: none;
+}
+
+#app[data-input='touch'] {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+#app[data-input='touch'] #controls-hint,
+#app[data-input='touch'] .pause-controls {
+  display: none;
+}
+
+#app[data-input='touch'] .pause-touch {
+  display: block;
+  max-width: 420px;
+  margin: 0;
+  color: #9aa1ad;
+  font-size: 14px;
+}
+
+#app[data-input='touch'][data-mode='flight'] #touch-controls {
+  display: block;
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  touch-action: none;
+}
+
+/* Floating sticks: placed at the touch-down point by TouchInput. */
+.touch-stick,
+.touch-steer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: none;
+  border: 1.5px solid rgba(127, 215, 255, 0.45);
+  border-radius: 50%;
+  background: rgba(127, 215, 255, 0.06);
+  pointer-events: none;
+}
+
+.touch-stick {
+  width: 112px;
+  height: 112px;
+  margin: -56px 0 0 -56px;
+}
+
+.touch-steer {
+  width: 140px;
+  height: 140px;
+  margin: -70px 0 0 -70px;
+}
+
+.touch-stick.active,
+.touch-steer.active {
+  display: block;
+}
+
+.touch-knob {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  border-radius: 50%;
+  background: rgba(127, 215, 255, 0.35);
+}
+
+.touch-buttons {
+  position: absolute;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  display: flex;
+  gap: 8px;
+}
+
+.touch-buttons.left {
+  left: max(12px, env(safe-area-inset-left));
+}
+
+.touch-buttons.right {
+  right: max(12px, env(safe-area-inset-right));
+}
+
+.touch-buttons button {
+  all: unset;
+  min-width: 44px;
+  height: 40px;
+  padding: 0 12px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(232, 234, 238, 0.25);
+  border-radius: 10px;
+  background: rgba(16, 17, 22, 0.55);
+  color: var(--hud-text);
+  font-size: 13px;
+}
+
+.touch-buttons button:active {
+  background: rgba(127, 215, 255, 0.2);
+  border-color: var(--hud-accent);
+}
+
+/* Lift the flight readout and target info clear of the button rows. */
+#app[data-input='touch'] #hud-flight {
+  bottom: calc(max(12px, env(safe-area-inset-bottom)) + 52px);
+}
+
+#app[data-input='touch'] #hud-message {
+  top: calc(50% + 48px);
+}
+
+@media (orientation: portrait) {
+  #app[data-input='touch'] #rotate-prompt {
+    display: flex;
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+    background: #000;
+    color: var(--hud-text);
+    font-size: 18px;
+    text-align: center;
+  }
 }

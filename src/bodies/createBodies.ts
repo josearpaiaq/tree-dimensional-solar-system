@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { bodies as bodyData } from './data/bodies.ts';
 import { planetSceneRadius } from './scaleConfig.ts';
 import CelestialBody from './CelestialBody.ts';
+import { computeZones } from './zones.ts';
 import type { RingData } from './types.ts';
 
 export interface CreateBodiesResult {
@@ -26,14 +27,36 @@ export function createBodies(loadingManager: THREE.LoadingManager): CreateBodies
     const material =
       data.type === 'star'
         ? new THREE.MeshBasicMaterial({ map: texture })
-        : new THREE.MeshStandardMaterial({ map: texture, roughness: 1, metalness: 0 });
+        : new THREE.MeshStandardMaterial({ map: texture, color: data.tint ?? 0xffffff, roughness: 1, metalness: 0 });
 
     const ringMesh = data.ring ? createRing(data.ring, data.rotation.axialTiltDeg, textureLoader) : null;
 
-    const body = new CelestialBody(data, material, ringMesh);
+    // Planets orbit the sun at the scene origin, so their pivots live in
+    // the root group; moons hang off their parent's (non-spinning) anchor.
+    const parent = data.parentId ? (byId.get(data.parentId) ?? null) : null;
+    const body = new CelestialBody(data, material, ringMesh, parent);
     celestialBodies.push(body);
     byId.set(data.id, body);
-    group.add(body.pivot);
+    if (data.type === 'moon' && parent) {
+      parent.anchor.add(body.pivot);
+    } else {
+      group.add(body.pivot);
+    }
+  }
+
+  const zones = computeZones(
+    celestialBodies.map((b) => ({
+      id: b.id,
+      type: b.type,
+      parentId: b.data.parentId,
+      sceneRadius: b.sceneRadius,
+      orbitRadius: b.orbitRadius,
+    }))
+  );
+  for (const body of celestialBodies) {
+    const { soiRadius, scanRadius } = zones.get(body.id)!;
+    body.soiRadius = soiRadius;
+    body.scanRadius = scanRadius;
   }
 
   return { group, celestialBodies, byId };

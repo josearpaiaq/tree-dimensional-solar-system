@@ -1,5 +1,12 @@
 import type CelestialBody from '../bodies/CelestialBody.ts';
 
+const TYPE_LABELS: Record<CelestialBody['type'], string> = { star: 'Star', planet: 'Planet', moon: 'Moon' };
+
+export interface ShowOptions {
+  cataloged?: boolean;
+  closeLabel?: string;
+}
+
 export interface FactsPanelOptions {
   onClose?: () => void;
 }
@@ -20,16 +27,36 @@ export default class FactsPanel {
     this.closeButton.addEventListener('click', () => onClose?.());
   }
 
-  show(body: CelestialBody): void {
+  // Uncataloged bodies only reveal what a pilot could see from afar; the
+  // facts are the reward for scanning.
+  show(body: CelestialBody, { cataloged = true, closeLabel = '← Overview' }: ShowOptions = {}): void {
     this.nameEl.textContent = body.name;
+    this.closeButton.textContent = closeLabel;
     this.statsEl.innerHTML = '';
 
-    const rows: [string, string][] = [
-      ['Diameter', formatKm(body.facts.diameterKm)],
-      ['Distance from Sun', body.facts.distanceFromSunKm > 0 ? formatKm(body.facts.distanceFromSunKm) : '—'],
-      ['Day length', formatHours(body.facts.dayLengthHours)],
-      ['Moons', String(body.facts.moons)],
-    ];
+    const facts = body.facts;
+    let rows: [string, string][];
+    if (!cataloged) {
+      rows = [
+        ['Type', TYPE_LABELS[body.type]],
+        ...(body.parent && body.type === 'moon' ? [['Orbits', body.parent.name] as [string, string]] : []),
+        ['Status', 'Unscanned'],
+      ];
+    } else if ('distanceFromParentKm' in facts) {
+      rows = [
+        ['Diameter', formatKm(facts.diameterKm)],
+        ['Orbits', body.parent?.name ?? '—'],
+        ['Distance from ' + (body.parent?.name ?? 'parent'), formatKm(facts.distanceFromParentKm)],
+        ['Orbital period', formatHours(facts.orbitalPeriodDays * 24)],
+      ];
+    } else {
+      rows = [
+        ['Diameter', formatKm(facts.diameterKm)],
+        ['Distance from Sun', facts.distanceFromSunKm > 0 ? formatKm(facts.distanceFromSunKm) : '—'],
+        ['Day length', formatHours(facts.dayLengthHours)],
+        ['Moons', String(facts.moons)],
+      ];
+    }
     for (const [label, value] of rows) {
       const dt = document.createElement('dt');
       dt.textContent = label;
